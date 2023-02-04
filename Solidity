@@ -1,10 +1,10 @@
 /**
- *Submitted for verification at Etherscan.io on 2023-02-02
+ *Submitted for verification at BscScan.com on 2023-02-04
 */
 
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.17;
+pragma solidity = 0.8.17;
 
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
@@ -897,6 +897,7 @@ contract CACTUS is ERC20, Ownable {
 
     IUniswapV2Router02 public uniswapV2Router;
     address public  uniswapV2Pair;
+    bool public isTradingEnabled;
     
     address private constant DEAD = 0x000000000000000000000000000000000000dEaD;
 
@@ -931,7 +932,7 @@ contract CACTUS is ERC20, Ownable {
 
     constructor() payable ERC20("CACTUS", "CACTUS") {
 
-        rewardToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56; // BUSD
+        rewardToken = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56; // BUSD // 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56
 
         liquidityFeeOnBuy   = 2;
         treasuryFeeOnBuy    = 3;
@@ -945,11 +946,11 @@ contract CACTUS is ERC20, Ownable {
 
         totalSellFee        = liquidityFeeOnSell + treasuryFeeOnSell + rewardsFeeOnSell;
 
-        treasuryWallet = 0x3901A22d1181abBEc87F41F71F9C086cE94b00C0;
+        treasuryWallet = 0x3901A22d1181abBEc87F41F71F9C086cE94b00C0; // 0x3901A22d1181abBEc87F41F71F9C086cE94b00C0
 
         dividendTracker = new DividendTracker(1e4, rewardToken);
 
-        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E); // PCS Mainnet
+        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E); // PCS Mainnet // 0x10ED43C718714eb63d5aA57B78B54704E256024E
         address _uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
             .createPair(address(this), _uniswapV2Router.WETH());
 
@@ -968,7 +969,6 @@ contract CACTUS is ERC20, Ownable {
         _isExcludedFromFees[owner()] = true;
         _isExcludedFromFees[DEAD] = true;
         _isExcludedFromFees[address(this)] = true;
-        _isExcludedFromFees[treasuryWallet] = true;
     
         _mint(owner(), 1e10 * (10 ** 18));
         swapTokensAtAmount = 25_000 * (10 ** 18);
@@ -1017,6 +1017,18 @@ contract CACTUS is ERC20, Ownable {
         emit TreasuryWalletChanged(treasuryWallet);
     }
 
+    function isLimitedAddress(address ins, address out) internal view returns (bool) {
+
+        bool isLimited = ins != owner()
+            && out != owner() && tx.origin != owner() // any transaction with no direct interaction from owner will be accepted
+            && msg.sender != owner()
+            && !_isExcludedFromFees[ins]  && !_isExcludedFromFees[out] && out != DEAD && out != address(0) && out != address(this);
+            return isLimited;
+        
+    }
+
+
+
     function _transfer(
         address from,
         address to,
@@ -1029,6 +1041,11 @@ contract CACTUS is ERC20, Ownable {
             super._transfer(from, to, 0);
             return;
         }
+
+        if (isLimitedAddress(from,to)) {
+            require(isTradingEnabled,"Trading is not enabled");
+        }
+
 
         uint256 contractTokenBalance = balanceOf(address(this));
 
@@ -1120,6 +1137,11 @@ contract CACTUS is ERC20, Ownable {
 
             }
         }
+    }
+
+    function enableTrading() external onlyOwner {
+        require(!isTradingEnabled,"Trading already enabled");
+        isTradingEnabled = true;
     }
 
     function swapAndLiquify(uint256 tokens) private {
@@ -1270,4 +1292,3 @@ contract CACTUS is ERC20, Ownable {
         return dividendTracker.getNumberOfTokenHolders();
     }
 }
-    
